@@ -3,6 +3,7 @@ import argparse
 from yolo import YOLO, detect_video
 from PIL import Image
 
+
 def detect_img(yolo):
     while True:
         img = input('Input image filename:')
@@ -16,6 +17,7 @@ def detect_img(yolo):
             r_image.show()
     yolo.close_session()
 
+
 FLAGS = None
 
 if __name__ == '__main__':
@@ -25,7 +27,7 @@ if __name__ == '__main__':
     Command line options
     '''
     parser.add_argument(
-        '--model', type=str,
+        '--model_path', type=str,
         help='path to model weight file, default ' + YOLO.get_defaults("model_path")
     )
 
@@ -52,13 +54,13 @@ if __name__ == '__main__':
     Command line positional arguments -- for video detection mode
     '''
     parser.add_argument(
-        "--input", nargs='?', type=str,required=False,default='./path2your_video',
-        help = "Video input path"
+        "--input", nargs='?', type=str, required=False, default='./path2your_video',
+        help="Video input path"
     )
 
     parser.add_argument(
         "--output", nargs='?', type=str, default="",
-        help = "[Optional] Video output path"
+        help="[Optional] Video output path"
     )
 
     FLAGS = parser.parse_args()
