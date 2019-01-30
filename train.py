@@ -14,9 +14,9 @@ from yolo3.utils import get_random_data
 
 
 def _main():
-    annotation_path = 'training_manifests/Qioni/fruit_pollock_1.txt'
+    annotation_path = '/home/daniele/Downloads/scanH1_VOC/scanH1.txt'
     log_dir = 'logs/miao/'
-    classes_path = 'training_manifests/Qioni/fruit_pollock_1.classes.txt'
+    classes_path = '/home/daniele/Downloads/scanH1_VOC/hole_classes.txt'
     anchors_path = 'model_data/tiny_yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
@@ -168,18 +168,18 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
     return model
 
 
-def create_lid_model(input_shape, anchors, num_classes, load_pretrained=False, freeze_body=2,
-                     weights_path=''):
-    '''create the training model, for LID'''
+def create_lid_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
+                     weights_path='model_data/tiny_yolo_weights.h5'):
+    '''create the training model, for Tiny YOLOv3'''
     K.clear_session()  # get a new session
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
-    grids = 32
     num_anchors = len(anchors)
 
-    y_true = Input(shape=(h//grids, w//grids, num_anchors//2, num_classes+5))
+    y_true = [Input(shape=(h//{0: 32, 1: 16}[l], w//{0: 32, 1: 16}[l],
+                           num_anchors//2, num_classes+5)) for l in range(2)]
 
-    model_body = lid_body(image_input, num_anchors//2, num_classes)
+    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes)
     print('Create Tiny YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -192,13 +192,9 @@ def create_lid_model(input_shape, anchors, num_classes, load_pretrained=False, f
                 model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
 
-    model_loss = Lambda(
-        lid_loss,
-        output_shape=(1,),
-        name='lid_loss',
-        arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7}
-    )([model_body.output, y_true])
-
+    model_loss = Lambda(lid_loss, output_shape=(1,), name='yolo_loss',
+                        arguments={'anchors': anchors, 'num_classes': num_classes, 'ignore_thresh': 0.7})(
+        [*model_body.output, *y_true])
     model = Model([model_body.input, *y_true], model_loss)
 
     return model
