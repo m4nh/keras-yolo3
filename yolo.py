@@ -24,7 +24,7 @@ class YOLO(object):
         "model_path": 'model_data/yolo.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
         "classes_path": 'train.txt.classes.txt',
-        "score": 0.5,
+        "score": 0.05,
         "iou": 0.45,
         "model_image_size": (416, 416),
         "gpu_num": 1,
@@ -167,6 +167,50 @@ class YOLO(object):
                 fill=self.colors[c])
             draw.text(text_origin, label, fill=(0, 0, 0), font=font)
             del draw
+
+        end = timer()
+        if self.debug:
+            print(end - start)
+        return image
+
+    def detect_raw_image(self, image, detections=[]):
+        start = timer()
+
+        if self.model_image_size != (None, None):
+            assert self.model_image_size[0] % 32 == 0, 'Multiples of 32 required'
+            assert self.model_image_size[1] % 32 == 0, 'Multiples of 32 required'
+            boxed_image = letterbox_image(image, tuple(reversed(self.model_image_size)))
+        else:
+            new_image_size = (image.width - (image.width % 32),
+                              image.height - (image.height % 32))
+            boxed_image = letterbox_image(image, new_image_size)
+        image_data = np.array(boxed_image, dtype='float32')
+
+        if self.debug:
+            print(image_data.shape)
+        image_data /= 255.
+        image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
+
+        out_boxes, out_scores, out_classes = self.sess.run(
+            [self.boxes, self.scores, self.classes],
+            feed_dict={
+                self.yolo_model.input: image_data,
+                self.input_image_shape: [image.size[1], image.size[0]],
+                K.learning_phase(): 0
+            })
+
+        if self.debug:
+            print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
+
+        font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
+                                  size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
+        thickness = (image.size[0] + image.size[1]) // 300
+
+        for i, c in reversed(list(enumerate(out_classes))):
+            predicted_class = self.class_names[c]
+            box = out_boxes[i]
+            score = out_scores[i]
+            detections.append((c, predicted_class, box, score, self.colors[c]))
 
         end = timer()
         if self.debug:

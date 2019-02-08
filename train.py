@@ -14,10 +14,10 @@ from yolo3.utils import get_random_data
 
 
 def _main():
-    annotation_path = '/home/daniele/Downloads/scanH1_VOC/scanH1.txt'
-    log_dir = 'logs/miao/'
-    classes_path = '/home/daniele/Downloads/scanH1_VOC/hole_classes.txt'
-    anchors_path = 'model_data/tiny_yolo_anchors.txt'
+    annotation_path = '/tmp/train.txt'
+    log_dir = 'logs/livanova/'
+    classes_path = '/home/daniele/data/datasets/Livanova/DemoGennaio2019/medical/livanova_classmap.txt'
+    anchors_path = '/home/daniele/work/workspace_python/keras-yolo3/model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)

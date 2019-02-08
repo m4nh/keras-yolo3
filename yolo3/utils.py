@@ -90,7 +90,7 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
     image = new_image
 
     # flip image or not
-    flip = False  # rand()<.5
+    flip = True  # rand()<.5
     if flip:
         image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
