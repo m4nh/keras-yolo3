@@ -37,7 +37,7 @@ def rand(a=0, b=1):
     return np.random.rand()*(b-a) + a
 
 
-def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jitter=.3, hue=.1, sat=1.5, val=1.5, proc_img=True):
+def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jitter=.3, rndscale=0.5, hue=.1, sat=1.5, val=1.5, proc_img=True):
     '''random preprocessing for real-time data augmentation'''
     line = annotation_line.split()
     image = Image.open(line[0])
@@ -72,8 +72,8 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
         return image_data, box_data
 
     # resize image
-    new_ar = w/h * rand(1-jitter, 1+jitter)/rand(1-jitter, 1+jitter)
-    scale = rand(.25, 2)
+    new_ar = w/h #* rand(1-jitter, 1+jitter)/rand(1-jitter, 1+jitter)
+    scale = rand(1 - rndscale, 1+rndscale)
     if new_ar < 1:
         nh = int(scale*h)
         nw = int(nh*new_ar)
@@ -90,7 +90,7 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
     image = new_image
 
     # flip image or not
-    flip = True  # rand()<.5
+    flip =  rand()<.5
     if flip:
         image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
@@ -107,6 +107,11 @@ def get_random_data(annotation_line, input_shape, random=True, max_boxes=20, jit
     x[x > 1] = 1
     x[x < 0] = 0
     image_data = hsv_to_rgb(x)  # numpy array, 0 to 1
+
+    # import cv2
+    # print(image_data.shape)
+    # cv2.imshow("img",cv2.cvtColor((image_data*255).astype(np.uint8), cv2.COLOR_RGB2BGR))
+    # cv2.waitKey(0)
 
     # correct boxes
     box_data = np.zeros((max_boxes, 5))

@@ -60,6 +60,7 @@ def detect_img(yolo):
 
 def detect_webcam(yolo):
     cap = cv2.VideoCapture(0)
+    cv2.namedWindow("live", cv2.WINDOW_NORMAL)
     while True:
         ret, live_image = cap.read()
         if ret:
@@ -75,6 +76,18 @@ def detect_webcam(yolo):
                 print(detections)
 
                 draw = ImageDraw.Draw(image)
+
+                max_score = 0
+                max_i = -1
+                for i, d in enumerate(detections):
+                    score = d[3]
+                    print(i, score)
+                    if score > max_score:
+                        max_score = score
+                        max_i = i
+
+                if max_i >= 0:
+                    detections = [detections[max_i]]
 
                 for d in detections:
                     label = d[0]

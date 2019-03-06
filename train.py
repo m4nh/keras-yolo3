@@ -12,12 +12,22 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss, lid_body, lid_loss
 from yolo3.utils import get_random_data
 
+augmentation = {
+    'jitter': 0,
+    'random_scale': 0,
+    'hue': 0,
+    'val': 2,
+    'sat': 1
+}
+
 
 def _main():
-    annotation_path = '/tmp/train.txt'
-    log_dir = 'logs/livanova/'
-    classes_path = '/home/daniele/data/datasets/Livanova/DemoGennaio2019/medical/livanova_classmap.txt'
+    annotation_path = '/tmp/plinio_il_picchio/train.txt'
+    log_dir = 'logs/copemo3/'
+    classes_path = '/home/daniele/data/datasets/copemo/dataset_copemo18/clams_classmap_simple_plain.txt'
     anchors_path = '/home/daniele/work/workspace_python/keras-yolo3/model_data/yolo_anchors.txt'
+    starting_weights = '/home/daniele/work/workspace_python/keras-yolo3/logs/copemo2/ep030-loss96.247-val_loss97.220.h5'
+    warmup_epochs = 2
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
@@ -30,7 +40,8 @@ def _main():
                                   freeze_body=2, weights_path='model_data/tiny_yolo_weights.h5')
     else:
         model = create_model(input_shape, anchors, num_classes,
-                             freeze_body=2, weights_path='model_data/yolo_weights.h5')  # make sure you know what you freeze
+                             freeze_body=2,
+                             weights_path=starting_weights)  # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -44,13 +55,13 @@ def _main():
     np.random.seed(10101)
     np.random.shuffle(lines)
     np.random.seed(None)
-    num_val = int(len(lines)*val_split)
+    num_val = int(len(lines) * val_split)
     num_train = len(lines) - num_val
 
-    warmup_epochs = 2
+
     # Train with frozen layers first, to get a stable loss.
     # Adjust num epochs to your dataset. This step is enough to obtain a not bad model.
-    if True:
+    if warmup_epochs>0:
         model.compile(optimizer=Adam(lr=1e-3), loss={
             # use custom yolo_loss Lambda layer.
             'yolo_loss': lambda y_true, y_pred: y_pred})
@@ -58,9 +69,10 @@ def _main():
         batch_size = 8
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
-                            steps_per_epoch=max(1, num_train//batch_size),
-                            validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
-                            validation_steps=max(1, num_val//batch_size),
+                            steps_per_epoch=max(1, num_train // batch_size),
+                            validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors,
+                                                                   num_classes),
+                            validation_steps=max(1, num_val // batch_size),
                             epochs=warmup_epochs,
                             initial_epoch=0,
                             callbacks=[logging, checkpoint])
@@ -71,16 +83,18 @@ def _main():
     if True:
         for i in range(len(model.layers)):
             model.layers[i].trainable = True
-        model.compile(optimizer=Adam(lr=1e-4), loss={'yolo_loss': lambda y_true, y_pred: y_pred})  # recompile to apply the change
+        model.compile(optimizer=Adam(lr= 1e-4),
+                      loss={'yolo_loss': lambda y_true, y_pred: y_pred})  # recompile to apply the change
         print('Unfreeze all of the layers.')
 
         batch_size = 8  # note that more GPU memory is required after unfreezing the body
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(data_generator_wrapper(lines[:num_train], batch_size, input_shape, anchors, num_classes),
-                            steps_per_epoch=max(1, num_train//batch_size),
-                            validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors, num_classes),
-                            validation_steps=max(1, num_val//batch_size),
-                            epochs=warmup_epochs+50,
+                            steps_per_epoch=max(1, num_train // batch_size),
+                            validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors,
+                                                                   num_classes),
+                            validation_steps=max(1, num_val // batch_size),
+                            epochs=warmup_epochs + 50,
                             initial_epoch=warmup_epochs,
                             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')
@@ -112,10 +126,10 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
     h, w = input_shape
     num_anchors = len(anchors)
 
-    y_true = [Input(shape=(h//{0: 32, 1: 16, 2: 8}[l], w//{0: 32, 1: 16, 2: 8}[l],
-                           num_anchors//3, num_classes+5)) for l in range(3)]
+    y_true = [Input(shape=(h // {0: 32, 1: 16, 2: 8}[l], w // {0: 32, 1: 16, 2: 8}[l],
+                           num_anchors // 3, num_classes + 5)) for l in range(3)]
 
-    model_body = yolo_body(image_input, num_anchors//3, num_classes)
+    model_body = yolo_body(image_input, num_anchors // 3, num_classes)
     print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -123,7 +137,7 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
         print('Load weights {}.'.format(weights_path))
         if freeze_body in [1, 2]:
             # Freeze darknet53 body or freeze all but 3 output layers.
-            num = (185, len(model_body.layers)-3)[freeze_body-1]
+            num = (185, len(model_body.layers) - 3)[freeze_body - 1]
             for i in range(num):
                 model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
@@ -144,10 +158,10 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
     h, w = input_shape
     num_anchors = len(anchors)
 
-    y_true = [Input(shape=(h//{0: 32, 1: 16}[l], w//{0: 32, 1: 16}[l],
-                           num_anchors//2, num_classes+5)) for l in range(2)]
+    y_true = [Input(shape=(h // {0: 32, 1: 16}[l], w // {0: 32, 1: 16}[l],
+                           num_anchors // 2, num_classes + 5)) for l in range(2)]
 
-    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes)
+    model_body = tiny_yolo_body(image_input, num_anchors // 2, num_classes)
     print('Create Tiny YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -155,7 +169,7 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
         print('Load weights {}.'.format(weights_path))
         if freeze_body in [1, 2]:
             # Freeze the darknet body or freeze all but 2 output layers.
-            num = (20, len(model_body.layers)-2)[freeze_body-1]
+            num = (20, len(model_body.layers) - 2)[freeze_body - 1]
             for i in range(num):
                 model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
@@ -176,10 +190,10 @@ def create_lid_model(input_shape, anchors, num_classes, load_pretrained=True, fr
     h, w = input_shape
     num_anchors = len(anchors)
 
-    y_true = [Input(shape=(h//{0: 32, 1: 16}[l], w//{0: 32, 1: 16}[l],
-                           num_anchors//2, num_classes+5)) for l in range(2)]
+    y_true = [Input(shape=(h // {0: 32, 1: 16}[l], w // {0: 32, 1: 16}[l],
+                           num_anchors // 2, num_classes + 5)) for l in range(2)]
 
-    model_body = tiny_yolo_body(image_input, num_anchors//2, num_classes)
+    model_body = tiny_yolo_body(image_input, num_anchors // 2, num_classes)
     print('Create Tiny YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
@@ -187,7 +201,7 @@ def create_lid_model(input_shape, anchors, num_classes, load_pretrained=True, fr
         print('Load weights {}.'.format(weights_path))
         if freeze_body in [1, 2]:
             # Freeze the darknet body or freeze all but 2 output layers.
-            num = (20, len(model_body.layers)-2)[freeze_body-1]
+            num = (20, len(model_body.layers) - 2)[freeze_body - 1]
             for i in range(num):
                 model_body.layers[i].trainable = False
             print('Freeze the first {} layers of total {} layers.'.format(num, len(model_body.layers)))
@@ -210,10 +224,19 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         for b in range(batch_size):
             if i == 0:
                 np.random.shuffle(annotation_lines)
-            image, box = get_random_data(annotation_lines[i], input_shape, random=True)
+            image, box = get_random_data(
+                annotation_lines[i],
+                input_shape,
+                random=True,
+                jitter=augmentation['jitter'],
+                rndscale=augmentation['random_scale'],
+                hue=augmentation['hue'],
+                sat=augmentation['sat'],
+                val=augmentation['val']
+            )
             image_data.append(image)
             box_data.append(box)
-            i = (i+1) % n
+            i = (i + 1) % n
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)

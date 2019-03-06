@@ -24,7 +24,7 @@ class YOLO(object):
         "model_path": 'model_data/yolo.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
         "classes_path": 'train.txt.classes.txt',
-        "score": 0.05,
+        "score": 0.01,
         "iou": 0.45,
         "model_image_size": (416, 416),
         "gpu_num": 1,
