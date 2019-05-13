@@ -16,18 +16,19 @@ augmentation = {
     'jitter': 0,
     'random_scale': 0,
     'hue': 0,
-    'val': 2,
+    'val': 1.3,
     'sat': 1
 }
 
 
 def _main():
     annotation_path = '/tmp/plinio_il_picchio/train.txt'
-    log_dir = 'logs/copemo3/'
+    log_dir = 'logs/copemo_corrected/'
     classes_path = '/home/daniele/data/datasets/copemo/dataset_copemo18/clams_classmap_simple_plain.txt'
     anchors_path = '/home/daniele/work/workspace_python/keras-yolo3/model_data/yolo_anchors.txt'
-    starting_weights = '/home/daniele/work/workspace_python/keras-yolo3/logs/copemo2/ep030-loss96.247-val_loss97.220.h5'
+    starting_weights = '/home/daniele/work/workspace_python/keras-yolo3/model_data/yolo_weights.h5'#''/home/daniele/work/workspace_python/keras-yolo3/logs/copemo2/ep030-loss96.247-val_loss97.220.h5'
     warmup_epochs = 2
+    max_epochs = 100
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
     anchors = get_anchors(anchors_path)
@@ -94,7 +95,7 @@ def _main():
                             validation_data=data_generator_wrapper(lines[num_train:], batch_size, input_shape, anchors,
                                                                    num_classes),
                             validation_steps=max(1, num_val // batch_size),
-                            epochs=warmup_epochs + 50,
+                            epochs=warmup_epochs + max_epochs,
                             initial_epoch=warmup_epochs,
                             callbacks=[logging, checkpoint, reduce_lr, early_stopping])
         model.save_weights(log_dir + 'trained_weights_final.h5')

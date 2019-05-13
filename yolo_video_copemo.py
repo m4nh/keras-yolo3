@@ -30,12 +30,13 @@ def detect_img(yolo):
             yolo.detect_raw_image(image, detections=detections)
             print(detections)
 
-            draw = ImageDraw.Draw(image,'RGBA')
+            draw = ImageDraw.Draw(image, 'RGBA')
 
             for d in detections:
                 label = d[0]
                 name = d[1]
                 top, left, bottom, right = d[2]
+                coords = [left, top, right,  bottom]
                 color = colors_map[name]
 
                 center = np.array([(left + right) * 0.5, (top + bottom) * 0.5])
@@ -44,7 +45,8 @@ def detect_img(yolo):
                 p1 = center + np.array([size, size])
 
                 pps = p0.tolist() + p1.tolist()
-                draw.ellipse(tuple(pps), fill=None, outline=color, width=5)
+                # draw.ellipse(tuple(pps), fill=None, outline=color, width=5)
+                draw.rectangle(coords,outline=color)
 
             out = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
             cv2.imshow("live", out)
